@@ -1,0 +1,38 @@
+    - name: Get RDP Connection Info
+      env:
+        RDP_PASSWORD: ${{ secrets.RDP_PASSWORD }}
+      run: |
+        $log = Join-Path $PWD "ngrok.log"
+        $attempts = 0
+        $found = $false
+        while ($attempts -lt 12 -and -not $found) {
+          if (Test-Path $log) {
+            $lines = Get-Content $log -ErrorAction SilentlyContinue
+            foreach ($l in $lines) {
+              if ($l -match "url=tcp://(.+):(\d+)") {
+                $rdpHost = $Matches[1]
+                $rdpPort = $Matches[2]
+                Write-Host "============================================"
+                Write-Host "✅ RDP Connection Details:"
+                Write-Host "Host: $rdpHost"
+                Write-Host "Port: $rdpPort"
+                Write-Host "Username: runneradmin"
+                Write-Host "Password: $($env:RDP_PASSWORD)"
+                Write-Host "============================================"
+                $found = $true
+                break
+              }
+            }
+          }
+          if (-not $found) {
+            Start-Sleep -Seconds 5
+            $attempts++
+          }
+        }
+
+        if (-not $found) {
+          Write-Host "❌ Could not find ngrok tcp endpoint in log. Dumping last 200 log lines for debugging:"
+          if (Test-Path $log) { Get-Content $log -Tail 200 | ForEach-Object { Write-Host $_ } } else { Write-Host "ngrok.log not found." }
+          exit 1
+        }
+      shell: pwsh
